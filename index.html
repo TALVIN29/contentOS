@@ -1,0 +1,730 @@
+<html lang="en">
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { FileText, Video, Calendar, CheckSquare, BrainCircuit, LayoutDashboard, Plus, X, ArrowLeft, ArrowRight, MoreVertical, Trash2, Edit, Save, Sparkles } from 'lucide-react';
+
+// --- DUMMY DATA ---
+const initialVideoIdeas = [
+  { id: 'idea-1', title: 'The 7 Habits of Highly Effective People - Book Summary', notes: 'Focus on the core principles and practical applications. Target audience: young professionals.', status: 'Scripting', book: 'The 7 Habits of Highly Effective People' },
+  { id: 'idea-2', title: 'How to Stop Procrastinating using the 5-Second Rule', notes: 'Explain the neuroscience behind the rule. Include personal anecdotes.', status: 'Idea', book: 'The 5 Second Rule' },
+  { id: 'idea-3', title: 'Deep Work: A Guide to Focused Success in a Distracted World', notes: 'Full chapter-by-chapter breakdown. Maybe a multi-part series.', status: 'Filming', book: 'Deep Work' },
+  { id: 'idea-4', title: 'Atomic Habits: Tiny Changes, Remarkable Results', notes: 'Create an animated summary of the main concepts.', status: 'Editing', book: 'Atomic Habits' },
+  { id: 'idea-5', title: 'My Top 5 Personal Growth Books of the Year', notes: 'Quick reviews of each. Link to individual summaries.', status: 'Published', book: 'Multiple' },
+];
+
+const initialTasks = [
+    { id: 'task-1', text: 'Finalize Q3 content calendar', completed: false, dueDate: new Date(new Date().getFullYear(), new Date().getMonth(), 25).toISOString().split('T')[0] },
+    { id: 'task-2', text: 'Research new microphone for studio setup', completed: false, dueDate: null },
+    { id: 'task-3', text: 'Pay quarterly estimated taxes for side hustle', completed: true, dueDate: new Date(new Date().getFullYear(), new Date().getMonth(), 15).toISOString().split('T')[0] },
+    { id: 'task-4', text: 'Schedule consultation with financial advisor', completed: false, dueDate: new Date(new Date().getFullYear(), new Date().getMonth(), 28).toISOString().split('T')[0] },
+];
+
+const initialEvents = [
+    { id: 'event-1', title: 'Work: Project Deadline', date: new Date(new Date().getFullYear(), new Date().getMonth(), 18).toISOString().split('T')[0] },
+    { id: 'event-2', title: 'Side Hustle: Client Meeting', date: new Date(new Date().getFullYear(), new Date().getMonth(), 22).toISOString().split('T')[0] },
+];
+
+
+// --- Main App Component ---
+export default function App() {
+    const [activeView, setActiveView] = useState('dashboard');
+    const [videoIdeas, setVideoIdeas] = useState(() => {
+        const saved = localStorage.getItem('videoIdeas');
+        return saved ? JSON.parse(saved) : initialVideoIdeas;
+    });
+    const [tasks, setTasks] = useState(() => {
+        const saved = localStorage.getItem('tasks');
+        return saved ? JSON.parse(saved) : initialTasks;
+    });
+    const [events, setEvents] = useState(() => {
+        const saved = localStorage.getItem('events');
+        return saved ? JSON.parse(saved) : initialEvents;
+    });
+
+    // --- Data Persistence ---
+    useEffect(() => {
+        localStorage.setItem('videoIdeas', JSON.stringify(videoIdeas));
+    }, [videoIdeas]);
+
+    useEffect(() => {
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+    }, [tasks]);
+    
+    useEffect(() => {
+        localStorage.setItem('events', JSON.stringify(events));
+    }, [events]);
+
+    const renderView = () => {
+        switch (activeView) {
+            case 'dashboard':
+                return <DashboardView tasks={tasks} videoIdeas={videoIdeas} events={events} setActiveView={setActiveView} />;
+            case 'pipeline':
+                return <VideoPipelineView videoIdeas={videoIdeas} setVideoIdeas={setVideoIdeas} />;
+            case 'tasks':
+                return <TaskManagerView tasks={tasks} setTasks={setTasks} />;
+            case 'calendar':
+                return <CalendarView tasks={tasks} videoIdeas={videoIdeas} events={events} setEvents={setEvents} />;
+            default:
+                return <DashboardView tasks={tasks} videoIdeas={videoIdeas} events={events} setActiveView={setActiveView} />;
+        }
+    };
+
+    return (
+        <div className="bg-slate-900 text-slate-100 font-sans flex min-h-screen w-full">
+            <Sidebar activeView={activeView} setActiveView={setActiveView} />
+            <main className="flex-1 p-4 sm:p-6 lg:p-8">
+                {renderView()}
+            </main>
+        </div>
+    );
+}
+
+// --- Sidebar Navigation ---
+const Sidebar = ({ activeView, setActiveView }) => {
+    const navItems = [
+        { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { id: 'pipeline', icon: Video, label: 'Video Pipeline' },
+        { id: 'tasks', icon: CheckSquare, label: 'Task Manager' },
+        { id: 'calendar', icon: Calendar, label: 'Calendar' },
+    ];
+
+    return (
+        <nav className="bg-slate-950 p-4 flex flex-col justify-between border-r border-slate-800">
+            <div>
+                <div className="flex items-center gap-3 mb-10 p-2">
+                    <BrainCircuit className="text-cyan-400 h-8 w-8" />
+                    <span className="font-bold text-xl hidden md:inline">ContentOS</span>
+                </div>
+                <ul>
+                    {navItems.map(item => (
+                        <li key={item.id} className="mb-2">
+                            <button
+                                onClick={() => setActiveView(item.id)}
+                                className={`flex items-center gap-3 p-3 rounded-lg w-full transition-colors duration-200 ${activeView === item.id ? 'bg-cyan-500/20 text-cyan-400' : 'hover:bg-slate-800'}`}
+                            >
+                                <item.icon className="h-6 w-6" />
+                                <span className="font-semibold hidden md:inline">{item.label}</span>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+             <div className="p-2 hidden md:block">
+                <p className="text-xs text-slate-500">© 2025 Your Channel Inc.</p>
+            </div>
+        </nav>
+    );
+};
+
+// --- Dashboard View ---
+const DashboardView = ({ tasks, videoIdeas, events, setActiveView }) => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    const upcomingTasks = tasks.filter(t => !t.completed && t.dueDate && t.dueDate >= todayStr).slice(0, 3);
+    const ideasInProgress = videoIdeas.filter(v => v.status === 'Scripting' || v.status === 'Filming').slice(0, 3);
+    const todaysEvents = events.filter(e => e.date === todayStr);
+    const todaysVideoTasks = videoIdeas.filter(v => v.dueDate === todayStr);
+
+    return (
+        <div>
+            <h1 className="text-3xl font-bold text-white mb-6">Dashboard</h1>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Today's Focus */}
+                <div className="lg:col-span-2 bg-slate-800/50 p-6 rounded-xl border border-slate-700">
+                    <h2 className="text-xl font-semibold mb-4 text-cyan-400">Today's Focus: {today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</h2>
+                    <div className="space-y-3">
+                        {[...todaysEvents, ...todaysVideoTasks].length > 0 ? (
+                             [...todaysEvents, ...todaysVideoTasks].map(item => (
+                                <div key={item.id} className="bg-slate-700/50 p-3 rounded-lg flex items-center gap-3">
+                                    {item.status ? <Video className="h-5 w-5 text-pink-400"/> : <Calendar className="h-5 w-5 text-purple-400"/> }
+                                    <span className="font-medium">{item.title}</span>
+                                    {item.status && <span className="text-xs bg-pink-500/20 text-pink-400 px-2 py-1 rounded-full">{item.status}</span>}
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-slate-400">No scheduled events or video tasks for today.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 flex flex-col justify-center">
+                    <h2 className="text-xl font-semibold mb-4 text-cyan-400">At a Glance</h2>
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Ideas in Pipeline</span>
+                            <span className="font-bold text-2xl text-white">{videoIdeas.length}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Active Tasks</span>
+                            <span className="font-bold text-2xl text-white">{tasks.filter(t => !t.completed).length}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Published Videos</span>
+                            <span className="font-bold text-2xl text-white">{videoIdeas.filter(v => v.status === 'Published').length}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Upcoming Tasks */}
+                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700">
+                    <h2 className="text-xl font-semibold mb-4 text-cyan-400">Upcoming Tasks</h2>
+                     {upcomingTasks.length > 0 ? (
+                        <ul className="space-y-2">
+                            {upcomingTasks.map(task => (
+                                <li key={task.id} className="flex items-center gap-3 bg-slate-700/50 p-3 rounded-lg">
+                                    <CheckSquare className="h-5 w-5 text-green-400"/>
+                                    <span className="flex-1">{task.text}</span>
+                                    <span className="text-sm text-slate-400">{new Date(task.dueDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : <p className="text-slate-400">No upcoming tasks.</p>}
+                    <button onClick={() => setActiveView('tasks')} className="mt-4 text-cyan-400 font-semibold hover:text-cyan-300 transition-colors">View all tasks →</button>
+                </div>
+
+                {/* Ideas in Progress */}
+                <div className="lg:col-span-2 bg-slate-800/50 p-6 rounded-xl border border-slate-700">
+                    <h2 className="text-xl font-semibold mb-4 text-cyan-400">Ideas in Progress</h2>
+                    {ideasInProgress.length > 0 ? (
+                        <div className="space-y-3">
+                            {ideasInProgress.map(idea => (
+                                <div key={idea.id} className="bg-slate-700/50 p-3 rounded-lg flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium">{idea.title}</p>
+                                        <p className="text-sm text-slate-400">{idea.book}</p>
+                                    </div>
+                                    <span className="text-sm bg-pink-500/20 text-pink-400 px-2 py-1 rounded-full font-medium">{idea.status}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : <p className="text-slate-400">No videos currently in scripting or filming.</p>}
+                     <button onClick={() => setActiveView('pipeline')} className="mt-4 text-cyan-400 font-semibold hover:text-cyan-300 transition-colors">Go to pipeline →</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// --- Video Pipeline View (Kanban) ---
+const VIDEO_STATUSES = ['Idea', 'Scripting', 'Filming', 'Editing', 'Published'];
+
+const VideoPipelineView = ({ videoIdeas, setVideoIdeas }) => {
+    const [showAddModal, setShowAddModal] = useState(false);
+
+    const addVideoIdea = (idea) => {
+        setVideoIdeas(prev => [...prev, { ...idea, id: `idea-${Date.now()}`, status: 'Idea' }]);
+    };
+
+    const updateVideoIdea = (updatedIdea) => {
+        setVideoIdeas(prev => prev.map(idea => idea.id === updatedIdea.id ? updatedIdea : idea));
+    };
+    
+    const deleteVideoIdea = (id) => {
+        setVideoIdeas(prev => prev.filter(idea => idea.id !== id));
+    };
+
+    return (
+        <div className="h-full flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold text-white">Video Pipeline</h1>
+                <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                    <Plus className="h-5 w-5" />
+                    New Idea
+                </button>
+            </div>
+            <div className="flex-1 overflow-x-auto pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 min-w-max">
+                    {VIDEO_STATUSES.map(status => (
+                        <PipelineColumn
+                            key={status}
+                            status={status}
+                            ideas={videoIdeas.filter(idea => idea.status === status)}
+                            updateVideoIdea={updateVideoIdea}
+                            deleteVideoIdea={deleteVideoIdea}
+                        />
+                    ))}
+                </div>
+            </div>
+            {showAddModal && <AddIdeaModal onAdd={addVideoIdea} onClose={() => setShowAddModal(false)} />}
+        </div>
+    );
+};
+
+const PipelineColumn = ({ status, ideas, updateVideoIdea, deleteVideoIdea }) => {
+    const statusColors = {
+        Idea: 'border-purple-500',
+        Scripting: 'border-blue-500',
+        Filming: 'border-pink-500',
+        Editing: 'border-orange-500',
+        Published: 'border-green-500',
+    };
+    return (
+        <div className={`bg-slate-800/50 rounded-xl p-4 border-t-4 ${statusColors[status]}`}>
+            <h2 className="font-bold text-lg mb-4 flex justify-between items-center">
+                <span>{status}</span>
+                <span className="text-sm bg-slate-700 rounded-full px-2 py-0.5">{ideas.length}</span>
+            </h2>
+            <div className="space-y-3">
+                {ideas.map(idea => (
+                    <VideoIdeaCard key={idea.id} idea={idea} onUpdate={updateVideoIdea} onDelete={deleteVideoIdea} />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const VideoIdeaCard = ({ idea, onUpdate, onDelete }) => {
+    const [showAiModal, setShowAiModal] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedIdea, setEditedIdea] = useState(idea);
+
+    const handleStatusChange = (newStatus) => {
+        onUpdate({ ...idea, status: newStatus });
+    };
+
+    const handleSave = () => {
+        onUpdate(editedIdea);
+        setIsEditing(false);
+    };
+
+    if (isEditing) {
+        return (
+            <div className="bg-slate-700 p-4 rounded-lg shadow-lg space-y-2">
+                <input
+                    type="text"
+                    value={editedIdea.title}
+                    onChange={(e) => setEditedIdea({...editedIdea, title: e.target.value})}
+                    className="w-full bg-slate-600 p-1 rounded border border-slate-500"
+                />
+                <input
+                    type="text"
+                    value={editedIdea.book}
+                    onChange={(e) => setEditedIdea({...editedIdea, book: e.target.value})}
+                    className="w-full bg-slate-600 p-1 rounded border border-slate-500"
+                />
+                <textarea
+                    value={editedIdea.notes}
+                    onChange={(e) => setEditedIdea({...editedIdea, notes: e.target.value})}
+                    className="w-full bg-slate-600 p-1 rounded border border-slate-500 h-20 text-sm"
+                />
+                <div className="flex justify-end">
+                    <button onClick={handleSave} className="p-2 bg-cyan-500 rounded-lg text-white"><Save className="h-4 w-4"/></button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <div className="bg-slate-900 p-4 rounded-lg shadow-lg border border-slate-700 hover:border-cyan-500 transition-colors">
+                <div className="flex justify-between items-start">
+                    <h3 className="font-bold text-base mb-1 pr-2 flex-1">{idea.title}</h3>
+                    <div className="relative">
+                        <button onClick={() => setShowMenu(!showMenu)} className="text-slate-400 hover:text-white">
+                            <MoreVertical className="h-5 w-5" />
+                        </button>
+                        {showMenu && (
+                            <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-md shadow-lg z-10 border border-slate-700">
+                                <div className="py-1">
+                                    <button onClick={() => { setIsEditing(true); setShowMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2"><Edit className="h-4 w-4"/> Edit</button>
+                                    <button onClick={() => { onDelete(idea.id); setShowMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2"><Trash2 className="h-4 w-4"/> Delete</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <p className="text-sm text-slate-400 mb-3">{idea.book}</p>
+                <p className="text-sm text-slate-300 mb-4">{idea.notes}</p>
+                <div className="flex items-center justify-between">
+                    <button onClick={() => setShowAiModal(true)} className="flex items-center gap-2 text-sm bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 font-semibold py-1 px-3 rounded-full transition-colors">
+                        <BrainCircuit className="h-4 w-4" />
+                        Draft Script
+                    </button>
+                    <select
+                        value={idea.status}
+                        onChange={(e) => handleStatusChange(e.target.value)}
+                        className="bg-slate-700 text-white text-sm rounded px-2 py-1 border-0 focus:ring-2 focus:ring-cyan-500"
+                    >
+                        {VIDEO_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+            </div>
+            {showAiModal && <AiScriptModal idea={idea} onClose={() => setShowAiModal(false)} />}
+        </>
+    );
+};
+
+const AddIdeaModal = ({ onAdd, onClose }) => {
+    const [title, setTitle] = useState('');
+    const [book, setBook] = useState('');
+    const [notes, setNotes] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        onAdd({ title, book, notes });
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-xl p-8 w-full max-w-md border border-slate-700">
+                <h2 className="text-2xl font-bold mb-6">Add New Video Idea</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input type="text" placeholder="Video Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-700 p-3 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500" required />
+                    <input type="text" placeholder="Related Book/Topic" value={book} onChange={e => setBook(e.target.value)} className="w-full bg-slate-700 p-3 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                    <textarea placeholder="Brief notes or synopsis..." value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-700 p-3 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 h-24" />
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button type="button" onClick={onClose} className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Cancel</button>
+                        <button type="submit" className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Add Idea</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+
+// --- AI Script Modal ---
+const AiScriptModal = ({ idea, onClose }) => {
+    const [prompt, setPrompt] = useState(`Click the "Auto-Generate Prompt" button for a detailed, high-quality prompt, or write your own here.`);
+    const [script, setScript] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const generateAutoPrompt = () => {
+        const autoPrompt = `**ROLE & GOAL:**
+You are an expert YouTube scriptwriter specializing in creating engaging, educational content about book summaries and personal growth. Your goal is to write a script that is clear, compelling, and optimized for audience retention.
+
+**VIDEO DETAILS:**
+- **Title:** "${idea.title}"
+- **Core Subject:** The book "${idea.book}"
+- **Key Focus Points & Notes:** ${idea.notes}
+
+**SCRIPT STRUCTURE (Strictly follow this):**
+
+1.  **THE HOOK (0-30 seconds):**
+    - Start with a relatable problem, a surprising statistic, or a provocative question directly related to the book's main theme.
+    - AVOID generic openings like "In this video...".
+    - Your objective is to make the viewer immediately think, "I need to know the answer to this."
+
+2.  **INTRODUCTION (30-60 seconds):**
+    - Briefly introduce the book and its author.
+    - State the core value proposition: what tangible knowledge or skill will the viewer gain by watching this video?
+    - Tease the key takeaways you'll be covering.
+
+3.  **MAIN BODY (3-5 Key Sections):**
+    - Based on the "Key Focus Points & Notes" provided, create 3-5 distinct sections.
+    - For each section:
+        - Introduce the concept clearly.
+        - Explain it using simple language and relatable analogies.
+        - Provide a concrete example or a short story to illustrate the point.
+    - Use the notes as your guide for the most important ideas to cover.
+
+4.  **PRACTICAL APPLICATION (1 minute):**
+    - Create a dedicated section titled "How You Can Use This Today."
+    - Provide 2-3 simple, actionable steps the viewer can take immediately to apply the book's wisdom to their own life.
+
+5.  **CONCLUSION & CALL TO ACTION (30-45 seconds):**
+    - Briefly summarize the most important takeaways from the video.
+    - End with a strong Call to Action (CTA). Ask a specific question related to the content to encourage comments. For example: "What's one habit you're going to change after watching this? Let me know in the comments below."
+    - Include a reminder to like and subscribe.
+
+**TONE & STYLE:**
+- **Conversational & Enthusiastic:** Write as if you're talking to a friend. Use contractions (e.g., "you're," "it's").
+- **Authoritative yet Humble:** Sound knowledgeable, but not arrogant.
+- **Pacing:** Keep sentences and paragraphs short for easy narration. Include markers like '[PAUSE]' for emphasis where needed.
+
+**FORMATTING:**
+- Write only the script itself. Do not include any extra commentary before or after the script.
+- Aim for a script that would result in an 8-12 minute video.`;
+        
+        setPrompt(autoPrompt);
+    };
+
+
+    const generateScript = async () => {
+        setIsLoading(true);
+        setError('');
+        setScript('');
+
+        // --- AI API Call ---
+        // IMPORTANT: This uses the Gemini API as a placeholder.
+        // Replace the URL and payload structure with your local LLM's API endpoint (e.g., DeepSeek).
+        const apiKey = ""; // Leave empty to use proxy
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        
+        const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }]
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+              const generatedText = result.candidates[0].content.parts[0].text;
+              setScript(generatedText);
+            } else {
+              throw new Error("Invalid response structure from AI.");
+            }
+        } catch (err) {
+            console.error("AI Generation Error:", err);
+            setError(err.message || 'Failed to generate script. Check console for details.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-xl p-8 w-full max-w-4xl h-[90vh] flex flex-col border border-slate-700">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-3"><BrainCircuit className="text-cyan-400"/> AI Script Generator</h2>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-700"><X/></button>
+                </div>
+                <p className="text-slate-400 mb-4">Drafting script for: <span className="font-semibold text-slate-200">{idea.title}</span></p>
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
+                    {/* Prompt Section */}
+                    <div className="flex flex-col">
+                        <div className="flex justify-between items-center mb-2">
+                             <h3 className="font-bold text-lg">Prompt</h3>
+                             <button onClick={generateAutoPrompt} className="flex items-center gap-2 text-sm bg-slate-700 hover:bg-slate-600 text-cyan-300 font-semibold py-1 px-3 rounded-full transition-colors">
+                                <Sparkles className="h-4 w-4" />
+                                Auto-Generate Prompt
+                            </button>
+                        </div>
+                        <textarea
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            className="w-full flex-1 bg-slate-900 p-4 rounded-lg border border-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
+                        />
+                        <button onClick={generateScript} disabled={isLoading || !prompt} className="mt-4 w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            {isLoading ? 'Generating...' : 'Generate Script'}
+                            {isLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>}
+                        </button>
+                    </div>
+
+                    {/* Result Section */}
+                    <div className="flex flex-col overflow-hidden">
+                        <h3 className="font-bold text-lg mb-2">Generated Script</h3>
+                        <div className="flex-1 bg-slate-900 p-4 rounded-lg border border-slate-700 overflow-y-auto">
+                            {isLoading && <p className="text-slate-400">AI is thinking...</p>}
+                            {error && <p className="text-red-400">{error}</p>}
+                            {script && <pre className="whitespace-pre-wrap text-slate-200 text-sm">{script}</pre>}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Task Manager View ---
+const TaskManagerView = ({ tasks, setTasks }) => {
+    const [newTaskText, setNewTaskText] = useState('');
+    const [newTaskDate, setNewTaskDate] = useState('');
+
+    const addTask = (e) => {
+        e.preventDefault();
+        if (!newTaskText.trim()) return;
+        const newTask = {
+            id: `task-${Date.now()}`,
+            text: newTaskText.trim(),
+            completed: false,
+            dueDate: newTaskDate || null
+        };
+        setTasks(prev => [newTask, ...prev]);
+        setNewTaskText('');
+        setNewTaskDate('');
+    };
+
+    const toggleTask = (id) => {
+        setTasks(tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task));
+    };
+
+    const deleteTask = (id) => {
+        setTasks(tasks.filter(task => task.id !== id));
+    };
+
+    const sortedTasks = useMemo(() => {
+        return [...tasks].sort((a, b) => {
+            if (a.completed !== b.completed) return a.completed ? 1 : -1;
+            if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+            if (a.dueDate) return -1;
+            if (b.dueDate) return 1;
+            return 0;
+        });
+    }, [tasks]);
+
+    return (
+        <div>
+            <h1 className="text-3xl font-bold text-white mb-6">Task Manager</h1>
+            <form onSubmit={addTask} className="flex flex-col sm:flex-row gap-3 mb-6 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                <input
+                    type="text"
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    placeholder="Add a new task..."
+                    className="flex-grow bg-slate-700 p-3 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <input
+                    type="date"
+                    value={newTaskDate}
+                    onChange={(e) => setNewTaskDate(e.target.value)}
+                    className="bg-slate-700 p-3 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <button type="submit" className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <Plus className="h-5 w-5"/> Add Task
+                </button>
+            </form>
+            <div className="space-y-3">
+                {sortedTasks.map(task => (
+                    <div key={task.id} className={`flex items-center gap-4 p-4 rounded-lg transition-all ${task.completed ? 'bg-slate-800/60' : 'bg-slate-800'}`}>
+                        <button onClick={() => toggleTask(task.id)}>
+                            <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center ${task.completed ? 'bg-green-500 border-green-500' : 'border-slate-500'}`}>
+                                {task.completed && '✔'}
+                            </div>
+                        </button>
+                        <span className={`flex-1 ${task.completed ? 'line-through text-slate-500' : 'text-slate-100'}`}>{task.text}</span>
+                        {task.dueDate && <span className={`text-sm px-2 py-1 rounded-full ${task.completed ? 'text-slate-600' : 'text-slate-400'}`}>{new Date(task.dueDate + 'T00:00:00').toLocaleDateString()}</span>}
+                        <button onClick={() => deleteTask(task.id)} className="text-slate-500 hover:text-red-400"><Trash2 className="h-5 w-5"/></button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// --- Calendar View ---
+const CalendarView = ({ tasks, videoIdeas, events, setEvents }) => {
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [showEventModal, setShowEventModal] = useState(false);
+    const [selectedDate, setSelectedDate] = useState(null);
+
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const startDay = startOfMonth.getDay();
+    const daysInMonth = endOfMonth.getDate();
+
+    const calendarDays = [];
+    for (let i = 0; i < startDay; i++) {
+        calendarDays.push({ key: `prev-${i}`, day: null, isCurrentMonth: false });
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+        calendarDays.push({ key: `current-${i}`, day: i, isCurrentMonth: true });
+    }
+    while (calendarDays.length % 7 !== 0) {
+        calendarDays.push({ key: `next-${calendarDays.length}`, day: null, isCurrentMonth: false });
+    }
+
+    const changeMonth = (offset) => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
+    };
+    
+    const handleAddEvent = (title) => {
+        const newEvent = { id: `event-${Date.now()}`, title, date: selectedDate };
+        setEvents(prev => [...prev, newEvent]);
+    };
+
+    const openEventModal = (day) => {
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        setSelectedDate(dateStr);
+        setShowEventModal(true);
+    };
+
+    const getEventsForDay = useCallback((day) => {
+        if (!day) return [];
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        const dayTasks = tasks.filter(t => t.dueDate === dateStr).map(t => ({...t, type: 'task'}));
+        const dayVideos = videoIdeas.filter(v => v.dueDate === dateStr).map(v => ({...v, type: 'video'}));
+        const dayEvents = events.filter(e => e.date === dateStr).map(e => ({...e, type: 'event'}));
+
+        return [...dayTasks, ...dayVideos, ...dayEvents];
+    }, [tasks, videoIdeas, events, currentDate]);
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold text-white">{currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()}</h1>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg hover:bg-slate-700"><ArrowLeft/></button>
+                    <button onClick={() => setCurrentDate(new Date())} className="text-sm font-semibold px-4 py-2 rounded-lg hover:bg-slate-700 border border-slate-600">Today</button>
+                    <button onClick={() => changeMonth(1)} className="p-2 rounded-lg hover:bg-slate-700"><ArrowRight/></button>
+                </div>
+            </div>
+            <div className="grid grid-cols-7 gap-1 bg-slate-800 p-2 rounded-xl border border-slate-700">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                    <div key={day} className="text-center font-bold text-slate-400 py-2">{day}</div>
+                ))}
+                {calendarDays.map(({ key, day, isCurrentMonth }) => {
+                    const isToday = isCurrentMonth && day === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear();
+                    const dayEvents = getEventsForDay(day);
+                    return (
+                        <div key={key} className={`h-36 rounded-lg p-2 flex flex-col overflow-hidden ${isCurrentMonth ? 'bg-slate-900' : 'bg-slate-800/50'} ${isToday ? 'border-2 border-cyan-500' : 'border border-slate-800'}`}>
+                            <div className="flex justify-between items-center">
+                                <span className={`font-bold ${isCurrentMonth ? 'text-white' : 'text-slate-600'} ${isToday ? 'text-cyan-400' : ''}`}>{day}</span>
+                                {isCurrentMonth && <button onClick={() => openEventModal(day)} className="text-slate-500 hover:text-cyan-400"><Plus className="h-4 w-4"/></button>}
+                            </div>
+                            <div className="mt-1 space-y-1 overflow-y-auto text-xs">
+                                {dayEvents.map(event => (
+                                    <div key={event.id} className={`p-1 rounded truncate ${
+                                        event.type === 'task' ? 'bg-green-500/20 text-green-300' :
+                                        event.type === 'video' ? 'bg-pink-500/20 text-pink-300' :
+                                        'bg-purple-500/20 text-purple-300'
+                                    }`}>
+                                        {event.title || event.text}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            {showEventModal && <AddEventModal onAdd={handleAddEvent} onClose={() => setShowEventModal(false)} date={selectedDate} />}
+        </div>
+    );
+};
+
+const AddEventModal = ({ onAdd, onClose, date }) => {
+    const [title, setTitle] = useState('');
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        onAdd(title);
+        onClose();
+    };
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-xl p-8 w-full max-w-md border border-slate-700">
+                <h2 className="text-2xl font-bold mb-2">Add Event</h2>
+                <p className="text-slate-400 mb-6">For {new Date(date + 'T00:00:00').toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'})}</p>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input type="text" placeholder="Event Title (e.g., Work Meeting)" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-700 p-3 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500" required />
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button type="button" onClick={onClose} className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Cancel</button>
+                        <button type="submit" className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Add Event</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+<html>
+                  
